@@ -250,8 +250,9 @@ var MailWatch = common.Shortcut{
 			if resolved := fetchMailboxPrimaryEmail(runtime, "me"); resolved != "" {
 				mailboxFilter = resolved
 			} else {
-				fmt.Fprintln(errOut, "Warning: unable to resolve mailbox address; events from other mailboxes may appear. Grant scope mail:user_mailbox:readonly to enable filtering.")
-				mailboxFilter = ""
+				return output.ErrWithHint(output.ExitAuth, "missing_scope",
+					"unable to resolve mailbox address for event filtering; without this, events from other mailboxes cannot be excluded",
+					"run `lark-cli auth login --scope \"mail:user_mailbox:readonly\"` to grant mailbox profile access")
 			}
 		}
 
