@@ -257,11 +257,6 @@ var MailWatch = common.Shortcut{
 		eventCount := 0
 
 		handleEvent := func(data map[string]interface{}) {
-			// Debug: print raw event
-			if raw, err := json.Marshal(data); err == nil {
-				fmt.Fprintf(errOut, "[debug] raw event: %s\n", raw)
-			}
-
 			// Extract event body
 			eventBody := extractMailEventBody(data)
 
@@ -316,14 +311,11 @@ var MailWatch = common.Shortcut{
 			if len(folderIDSet) > 0 {
 				folderID, _ := message["folder_id"].(string)
 				if !folderIDSet[folderID] {
-					fmt.Fprintf(errOut, "[debug] skipping message %s: folder_id=%q not in filter\n", messageID, folderID)
 					return
 				}
 			}
 			if len(labelIDSet) > 0 {
 				if !messageHasLabel(message, labelIDSet) {
-					labels, _ := message["label_ids"].([]interface{})
-					fmt.Fprintf(errOut, "[debug] skipping message %s: label_ids=%v not matching filter\n", messageID, labels)
 					return
 				}
 			}
@@ -425,6 +417,13 @@ var MailWatch = common.Shortcut{
 			}()
 			<-sigCh
 			info(fmt.Sprintf("\nShutting down... (received %d events)", eventCount))
+			info("Unsubscribing mailbox events...")
+			_, unsubErr := runtime.CallAPI("POST", mailboxPath(mailbox, "event", "unsubscribe"), nil, map[string]interface{}{"event_type": 1})
+			if unsubErr != nil {
+				fmt.Fprintf(errOut, "Warning: unsubscribe failed: %v\n", unsubErr)
+			} else {
+				info("Mailbox unsubscribed.")
+			}
 			signal.Stop(sigCh)
 			os.Exit(0)
 		}()
