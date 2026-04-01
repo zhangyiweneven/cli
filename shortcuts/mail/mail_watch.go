@@ -250,7 +250,8 @@ var MailWatch = common.Shortcut{
 			if resolved := fetchMailboxPrimaryEmail(runtime, "me"); resolved != "" {
 				mailboxFilter = resolved
 			} else {
-				mailboxFilter = "" // can't resolve — skip filtering
+				fmt.Fprintln(errOut, "Warning: unable to resolve mailbox address; events from other mailboxes may appear. Grant scope mail:user_mailbox:readonly to enable filtering.")
+				mailboxFilter = ""
 			}
 		}
 
