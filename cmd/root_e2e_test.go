@@ -45,17 +45,6 @@ func executeE2E(t *testing.T, f *cmdutil.Factory, rootCmd *cobra.Command, args [
 	return 0
 }
 
-// registerTokenStub registers a tenant_access_token stub so bot auth succeeds.
-func registerTokenStub(reg *httpmock.Registry) {
-	reg.Register(&httpmock.Stub{
-		URL: "/open-apis/auth/v3/tenant_access_token/internal",
-		Body: map[string]interface{}{
-			"code": 0, "msg": "ok",
-			"tenant_access_token": "t-e2e-token", "expire": 7200,
-		},
-	})
-}
-
 // parseEnvelope parses stderr bytes into an ErrorEnvelope.
 func parseEnvelope(t *testing.T, stderr *bytes.Buffer) output.ErrorEnvelope {
 	t.Helper()
@@ -93,7 +82,6 @@ func TestE2E_Api_BusinessError_OutputsEnvelope(t *testing.T) {
 	f, stdout, stderr, reg := cmdutil.TestFactory(t, &core.CliConfig{
 		AppID: "e2e-api-err", AppSecret: "secret", Brand: core.BrandFeishu,
 	})
-	registerTokenStub(reg)
 	reg.Register(&httpmock.Stub{
 		URL: "/open-apis/im/v1/messages",
 		Body: map[string]interface{}{
@@ -131,7 +119,6 @@ func TestE2E_Api_PermissionError_NotEnriched(t *testing.T) {
 	f, stdout, stderr, reg := cmdutil.TestFactory(t, &core.CliConfig{
 		AppID: "e2e-api-perm", AppSecret: "secret", Brand: core.BrandFeishu,
 	})
-	registerTokenStub(reg)
 	reg.Register(&httpmock.Stub{
 		URL: "/open-apis/test/perm",
 		Body: map[string]interface{}{
@@ -176,7 +163,6 @@ func TestE2E_Service_BusinessError_OutputsEnvelope(t *testing.T) {
 	f, stdout, stderr, reg := cmdutil.TestFactory(t, &core.CliConfig{
 		AppID: "e2e-svc-err", AppSecret: "secret", Brand: core.BrandFeishu,
 	})
-	registerTokenStub(reg)
 	reg.Register(&httpmock.Stub{
 		URL: "/open-apis/im/v1/chats/oc_fake",
 		Body: map[string]interface{}{
@@ -212,7 +198,6 @@ func TestE2E_Service_PermissionError_Enriched(t *testing.T) {
 	f, stdout, stderr, reg := cmdutil.TestFactory(t, &core.CliConfig{
 		AppID: "e2e-svc-perm", AppSecret: "secret", Brand: core.BrandFeishu,
 	})
-	registerTokenStub(reg)
 	reg.Register(&httpmock.Stub{
 		URL: "/open-apis/im/v1/chats/oc_test",
 		Body: map[string]interface{}{
@@ -251,7 +236,6 @@ func TestE2E_Shortcut_BusinessError_OutputsEnvelope(t *testing.T) {
 	f, stdout, stderr, reg := cmdutil.TestFactory(t, &core.CliConfig{
 		AppID: "e2e-sc-err", AppSecret: "secret", Brand: core.BrandFeishu,
 	})
-	registerTokenStub(reg)
 	reg.Register(&httpmock.Stub{
 		URL:    "/open-apis/im/v1/messages",
 		Status: 400,

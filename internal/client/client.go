@@ -14,8 +14,8 @@ import (
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 
-	"github.com/larksuite/cli/internal/auth"
 	"github.com/larksuite/cli/internal/core"
+	"github.com/larksuite/cli/internal/credential"
 	"github.com/larksuite/cli/internal/output"
 	"github.com/larksuite/cli/internal/util"
 )
@@ -32,10 +32,11 @@ type RawApiRequest struct {
 
 // APIClient wraps lark.Client for all Lark Open API calls.
 type APIClient struct {
-	Config *core.CliConfig
-	SDK    *lark.Client // All Lark API calls go through SDK
-	HTTP   *http.Client // Only for non-Lark API (OAuth, MCP, etc.)
-	ErrOut io.Writer    // debug/progress output
+	Config        *core.CliConfig
+	SDK           *lark.Client // All Lark API calls go through SDK
+	HTTP          *http.Client // Only for non-Lark API (OAuth, MCP, etc.)
+	ErrOut        io.Writer    // debug/progress output
+	Credential *credential.CredentialProvider
 }
 
 // buildApiReq converts a RawApiRequest into SDK types and collects
@@ -74,18 +75,16 @@ func (c *APIClient) buildApiReq(request RawApiRequest) (*larkcore.ApiReq, []lark
 func (c *APIClient) DoSDKRequest(ctx context.Context, req *larkcore.ApiReq, as core.Identity, extraOpts ...larkcore.RequestOptionFunc) (*larkcore.ApiResp, error) {
 	var opts []larkcore.RequestOptionFunc
 
+	result, err := c.Credential.ResolveToken(ctx, credential.NewTokenSpec(as, c.Config.AppID))
+	if err != nil {
+		return nil, err
+	}
 	if as.IsBot() {
 		req.SupportedAccessTokenTypes = []larkcore.AccessTokenType{larkcore.AccessTokenTypeTenant}
+		opts = append(opts, larkcore.WithTenantAccessToken(result.Token))
 	} else {
 		req.SupportedAccessTokenTypes = []larkcore.AccessTokenType{larkcore.AccessTokenTypeUser}
-		if c.Config.UserOpenId == "" {
-			return nil, fmt.Errorf("login required: lark-cli auth login (or use --as bot)")
-		}
-		token, err := auth.GetValidAccessToken(c.HTTP, auth.NewUATCallOptions(c.Config, c.ErrOut))
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, larkcore.WithUserAccessToken(token))
+		opts = append(opts, larkcore.WithUserAccessToken(result.Token))
 	}
 
 	opts = append(opts, extraOpts...)

@@ -24,6 +24,7 @@ import (
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 
 	"github.com/larksuite/cli/internal/auth"
+	"github.com/larksuite/cli/internal/credential"
 	"github.com/larksuite/cli/internal/output"
 	"github.com/larksuite/cli/internal/validate"
 	"github.com/larksuite/cli/shortcuts/common"
@@ -443,16 +444,12 @@ var VCNotes = common.Shortcut{
 		default:
 			// unreachable: ExactlyOne already ensures one flag is set
 		}
-		appID := runtime.Config.AppID
-		userOpenId := runtime.UserOpenId()
-		if appID != "" && userOpenId != "" {
-			stored := auth.GetStoredToken(appID, userOpenId)
-			if stored != nil {
-				if missing := auth.MissingScopes(stored.Scope, required); len(missing) > 0 {
-					return output.ErrWithHint(output.ExitAuth, "missing_scope",
-						fmt.Sprintf("missing required scope(s): %s", strings.Join(missing, ", ")),
-						fmt.Sprintf("run `lark-cli auth login --scope \"%s\"` in the background. It blocks and outputs a verification URL — retrieve the URL and open it in a browser to complete login.", strings.Join(missing, " ")))
-				}
+		result, err := runtime.Factory.Credential.ResolveToken(ctx, credential.NewTokenSpec(runtime.As(), runtime.Config.AppID))
+		if err == nil && result != nil && result.Scopes != "" {
+			if missing := auth.MissingScopes(result.Scopes, required); len(missing) > 0 {
+				return output.ErrWithHint(output.ExitAuth, "missing_scope",
+					fmt.Sprintf("missing required scope(s): %s", strings.Join(missing, ", ")),
+					fmt.Sprintf("run `lark-cli auth login --scope \"%s\"` in the background. It blocks and outputs a verification URL — retrieve the URL and open it in a browser to complete login.", strings.Join(missing, " ")))
 			}
 		}
 		return nil

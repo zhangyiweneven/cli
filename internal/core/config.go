@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/larksuite/cli/internal/keychain"
 	"github.com/larksuite/cli/internal/output"
@@ -34,27 +35,127 @@ type AppUser struct {
 
 // AppConfig is a per-app configuration entry (stored format — secrets may be unresolved).
 type AppConfig struct {
-	AppId     string      `json:"appId"`
-	AppSecret SecretInput `json:"appSecret"`
-	Brand     LarkBrand   `json:"brand"`
-	Lang      string      `json:"lang,omitempty"`
-	DefaultAs string      `json:"defaultAs,omitempty"` // "user" | "bot" | "auto"
-	Users     []AppUser   `json:"users"`
+	Name       string      `json:"name,omitempty"`
+	AppId      string      `json:"appId"`
+	AppSecret  SecretInput `json:"appSecret"`
+	Brand      LarkBrand   `json:"brand"`
+	Lang       string      `json:"lang,omitempty"`
+	DefaultAs  string      `json:"defaultAs,omitempty"` // "user" | "bot" | "auto"
+	StrictMode *bool       `json:"strictMode,omitempty"`
+	Users      []AppUser   `json:"users"`
+}
+
+// ProfileName returns the display name for this app config.
+// If Name is set, returns Name; otherwise falls back to AppId.
+func (a *AppConfig) ProfileName() string {
+	if a.Name != "" {
+		return a.Name
+	}
+	return a.AppId
 }
 
 // MultiAppConfig is the multi-app config file format.
 type MultiAppConfig struct {
-	Apps []AppConfig `json:"apps"`
+	StrictMode  bool        `json:"strictMode,omitempty"`
+	CurrentApp  string      `json:"currentApp,omitempty"`
+	PreviousApp string      `json:"previousApp,omitempty"`
+	Apps        []AppConfig `json:"apps"`
+}
+
+// CurrentAppConfig returns the currently active app config.
+// Resolution priority: profileOverride > CurrentApp field > Apps[0].
+func (m *MultiAppConfig) CurrentAppConfig(profileOverride string) *AppConfig {
+	if profileOverride != "" {
+		if app := m.FindApp(profileOverride); app != nil {
+			return app
+		}
+		return nil
+	}
+	if m.CurrentApp != "" {
+		if app := m.FindApp(m.CurrentApp); app != nil {
+			return app
+		}
+	}
+	if len(m.Apps) > 0 {
+		return &m.Apps[0]
+	}
+	return nil
+}
+
+// FindApp looks up an app by name, then by appId. Returns nil if not found.
+// Name match takes priority: if profile A has Name "X" and profile B has AppId "X",
+// FindApp("X") returns profile A.
+func (m *MultiAppConfig) FindApp(name string) *AppConfig {
+	// First pass: match by Name
+	for i := range m.Apps {
+		if m.Apps[i].Name != "" && m.Apps[i].Name == name {
+			return &m.Apps[i]
+		}
+	}
+	// Second pass: match by AppId
+	for i := range m.Apps {
+		if m.Apps[i].AppId == name {
+			return &m.Apps[i]
+		}
+	}
+	return nil
+}
+
+// FindAppIndex looks up an app index by name, then by appId. Returns -1 if not found.
+func (m *MultiAppConfig) FindAppIndex(name string) int {
+	for i := range m.Apps {
+		if m.Apps[i].Name != "" && m.Apps[i].Name == name {
+			return i
+		}
+	}
+	for i := range m.Apps {
+		if m.Apps[i].AppId == name {
+			return i
+		}
+	}
+	return -1
+}
+
+// ProfileNames returns all profile names (Name if set, otherwise AppId).
+func (m *MultiAppConfig) ProfileNames() []string {
+	names := make([]string, len(m.Apps))
+	for i := range m.Apps {
+		names[i] = m.Apps[i].ProfileName()
+	}
+	return names
+}
+
+// ValidateProfileName checks that a profile name is valid.
+// Rejects empty names, whitespace, control characters, and shell-problematic characters,
+// but allows Unicode letters (e.g. Chinese, Japanese) for localized profile names.
+func ValidateProfileName(name string) error {
+	if name == "" {
+		return fmt.Errorf("profile name cannot be empty")
+	}
+	if len(name) > 64 {
+		return fmt.Errorf("profile name %q is too long (max 64 characters)", name)
+	}
+	for _, r := range name {
+		if r <= 0x1F || r == 0x7F { // control characters
+			return fmt.Errorf("invalid profile name %q: contains control characters", name)
+		}
+		switch r {
+		case ' ', '\t', '/', '\\', '"', '\'', '`', '$', '#', '!', '&', '|', ';', '(', ')', '{', '}', '[', ']', '<', '>', '?', '*', '~':
+			return fmt.Errorf("invalid profile name %q: contains invalid character %q", name, r)
+		}
+	}
+	return nil
 }
 
 // CliConfig is the resolved single-app config used by downstream code.
 type CliConfig struct {
-	AppID      string
-	AppSecret  string
-	Brand      LarkBrand
-	DefaultAs  string // "user" | "bot" | "auto" | "" (from config file)
-	UserOpenId string
-	UserName   string
+	ProfileName string
+	AppID       string
+	AppSecret   string
+	Brand       LarkBrand
+	DefaultAs   string // "user" | "bot" | "auto" | "" (from config file)
+	UserOpenId  string
+	UserName    string
 }
 
 // GetConfigDir returns the config directory path.
@@ -106,13 +207,35 @@ func SaveMultiAppConfig(config *MultiAppConfig) error {
 	return validate.AtomicWrite(GetConfigPath(), append(data, '\n'), 0600)
 }
 
-// RequireConfig loads the single-app config. Takes Apps[0] directly.
+// RequireConfig loads the single-app config using the default profile resolution.
 func RequireConfig(kc keychain.KeychainAccess) (*CliConfig, error) {
+	return RequireConfigForProfile(kc, "")
+}
+
+// RequireConfigForProfile loads the single-app config for a specific profile.
+// Resolution priority: profileOverride > LARKSUITE_CLI_PROFILE env > config.CurrentApp > Apps[0].
+func RequireConfigForProfile(kc keychain.KeychainAccess, profileOverride string) (*CliConfig, error) {
 	raw, err := LoadMultiAppConfig()
 	if err != nil || raw == nil || len(raw.Apps) == 0 {
 		return nil, &ConfigError{Code: 2, Type: "config", Message: "not configured", Hint: "run `lark-cli config init --new` in the background. It blocks and outputs a verification URL — retrieve the URL and open it in a browser to complete setup."}
 	}
-	app := raw.Apps[0]
+
+	// Apply env var fallback
+	effectiveOverride := profileOverride
+	if effectiveOverride == "" {
+		effectiveOverride = os.Getenv("LARKSUITE_CLI_PROFILE")
+	}
+
+	app := raw.CurrentAppConfig(effectiveOverride)
+	if app == nil {
+		return nil, &ConfigError{
+			Code:    2,
+			Type:    "config",
+			Message: fmt.Sprintf("profile %q not found", effectiveOverride),
+			Hint:    fmt.Sprintf("available profiles: %s", formatProfileNames(raw.ProfileNames())),
+		}
+	}
+
 	secret, err := ResolveSecretInput(app.AppSecret, kc)
 	if err != nil {
 		// If the error comes from the keychain, it will already be wrapped as an ExitError.
@@ -124,10 +247,11 @@ func RequireConfig(kc keychain.KeychainAccess) (*CliConfig, error) {
 		return nil, &ConfigError{Code: 2, Type: "config", Message: err.Error()}
 	}
 	cfg := &CliConfig{
-		AppID:     app.AppId,
-		AppSecret: secret,
-		Brand:     app.Brand,
-		DefaultAs: app.DefaultAs,
+		ProfileName: app.ProfileName(),
+		AppID:       app.AppId,
+		AppSecret:   secret,
+		Brand:       app.Brand,
+		DefaultAs:   app.DefaultAs,
 	}
 	if len(app.Users) > 0 {
 		cfg.UserOpenId = app.Users[0].UserOpenId
@@ -138,7 +262,12 @@ func RequireConfig(kc keychain.KeychainAccess) (*CliConfig, error) {
 
 // RequireAuth loads config and ensures a user is logged in.
 func RequireAuth(kc keychain.KeychainAccess) (*CliConfig, error) {
-	cfg, err := RequireConfig(kc)
+	return RequireAuthForProfile(kc, "")
+}
+
+// RequireAuthForProfile loads config for a profile and ensures a user is logged in.
+func RequireAuthForProfile(kc keychain.KeychainAccess, profileOverride string) (*CliConfig, error) {
+	cfg, err := RequireConfigForProfile(kc, profileOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -146,4 +275,12 @@ func RequireAuth(kc keychain.KeychainAccess) (*CliConfig, error) {
 		return nil, &ConfigError{Code: 3, Type: "auth", Message: "not logged in", Hint: "run `lark-cli auth login` in the background. It blocks and outputs a verification URL — retrieve the URL and open it in a browser to complete login."}
 	}
 	return cfg, nil
+}
+
+// formatProfileNames joins profile names for display.
+func formatProfileNames(names []string) string {
+	if len(names) == 0 {
+		return "(none)"
+	}
+	return strings.Join(names, ", ")
 }

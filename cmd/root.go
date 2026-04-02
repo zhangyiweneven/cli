@@ -18,6 +18,7 @@ import (
 	"github.com/larksuite/cli/cmd/completion"
 	cmdconfig "github.com/larksuite/cli/cmd/config"
 	"github.com/larksuite/cli/cmd/doctor"
+	"github.com/larksuite/cli/cmd/profile"
 	"github.com/larksuite/cli/cmd/schema"
 	"github.com/larksuite/cli/cmd/service"
 	internalauth "github.com/larksuite/cli/internal/auth"
@@ -95,12 +96,19 @@ func Execute() int {
 	}
 	installTipsHelpFunc(rootCmd)
 	rootCmd.SilenceErrors = true
+
+	var profileFlag string
+	rootCmd.PersistentFlags().StringVar(&profileFlag, "profile", "", "use a specific profile")
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		cmd.SilenceUsage = true
+		if profileFlag != "" {
+			f.ProfileOverride = profileFlag
+		}
 	}
 
 	rootCmd.AddCommand(cmdconfig.NewCmdConfig(f))
 	rootCmd.AddCommand(auth.NewCmdAuth(f))
+	rootCmd.AddCommand(profile.NewCmdProfile(f))
 	rootCmd.AddCommand(doctor.NewCmdDoctor(f))
 	rootCmd.AddCommand(api.NewCmdApi(f, nil))
 	rootCmd.AddCommand(schema.NewCmdSchema(f, nil))

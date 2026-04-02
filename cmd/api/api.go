@@ -152,6 +152,10 @@ func apiRun(opts *APIOptions) error {
 	f := opts.Factory
 	opts.As = f.ResolveAs(opts.Cmd, opts.As)
 
+	if err := f.CheckStrictMode(opts.As); err != nil {
+		return err
+	}
+
 	if opts.PageAll && opts.Output != "" {
 		return output.ErrValidation("--output and --page-all are mutually exclusive")
 	}
@@ -161,7 +165,7 @@ func apiRun(opts *APIOptions) error {
 		return err
 	}
 
-	config, err := f.ResolveConfig(opts.As)
+	config, err := f.Config()
 	if err != nil {
 		return err
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/larksuite/cli/internal/client"
 	"github.com/larksuite/cli/internal/cmdutil"
 	"github.com/larksuite/cli/internal/core"
+	"github.com/larksuite/cli/internal/credential"
 	"github.com/larksuite/cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -88,29 +89,11 @@ func (ctx *RuntimeContext) getAPIClient() (*client.APIClient, error) {
 // For user: returns user access token (with auto-refresh).
 // For bot: returns tenant access token.
 func (ctx *RuntimeContext) AccessToken() (string, error) {
-	if ctx.IsBot() {
-		ac, err := ctx.getAPIClient()
-		if err != nil {
-			return "", output.ErrAuth("failed to get SDK: %s", err)
-		}
-		tatResp, err := ac.SDK.GetTenantAccessTokenBySelfBuiltApp(ctx.ctx, &larkcore.SelfBuiltTenantAccessTokenReq{
-			AppID:     ctx.Config.AppID,
-			AppSecret: ctx.Config.AppSecret,
-		})
-		if err != nil {
-			return "", output.ErrAuth("failed to get tenant access token: %s", err)
-		}
-		return tatResp.TenantAccessToken, nil
-	}
-	httpClient, err := ctx.Factory.HttpClient()
-	if err != nil {
-		return "", output.ErrAuth("failed to get HTTP client: %s", err)
-	}
-	token, err := auth.GetValidAccessToken(httpClient, auth.NewUATCallOptions(ctx.Config, ctx.IO().ErrOut))
+	result, err := ctx.Factory.Credential.ResolveToken(ctx.ctx, credential.NewTokenSpec(ctx.As(), ctx.Config.AppID))
 	if err != nil {
 		return "", output.ErrAuth("failed to get access token: %s", err)
 	}
-	return token, nil
+	return result.Token, nil
 }
 
 // LarkSDK returns the eagerly-initialized Lark SDK client.
@@ -462,15 +445,15 @@ func (ctx *RuntimeContext) OutFormat(data interface{}, meta *output.Meta, pretty
 
 // ── Scope pre-check ──
 
-// checkScopePrereqs performs a fast local check: does the stored token
-// contain all scopes declared by the shortcut?  Returns the missing ones.
-// If no token is stored, returns nil (let the normal auth flow handle it).
-func checkScopePrereqs(appID, userOpenId string, required []string) []string {
-	stored := auth.GetStoredToken(appID, userOpenId)
-	if stored == nil {
-		return nil // no token yet — auth flow will catch this later
+// checkScopePrereqs performs a fast local check: does the token
+// contain all scopes declared by the shortcut? Returns the missing ones.
+// If scope data is unavailable, returns nil (let the API call handle it).
+func checkScopePrereqs(f *cmdutil.Factory, ctx context.Context, appID string, identity core.Identity, required []string) []string {
+	result, err := f.Credential.ResolveToken(ctx, credential.NewTokenSpec(identity, appID))
+	if err != nil || result == nil || result.Scopes == "" {
+		return nil
 	}
-	return auth.MissingScopes(stored.Scope, required)
+	return auth.MissingScopes(result.Scopes, required)
 }
 
 // enhancePermissionError enriches a permission / auth error with the
@@ -541,14 +524,14 @@ func runShortcut(cmd *cobra.Command, f *cmdutil.Factory, s *Shortcut, botOnly bo
 		return err
 	}
 
-	config, err := f.ResolveConfig(as)
+	config, err := f.Config()
 	if err != nil {
 		return err
 	}
 	// Identity info is now included in the JSON envelope; skip stderr printing.
 	// cmdutil.PrintIdentity(f.IOStreams.ErrOut, as, config, false)
 
-	if err := checkShortcutScopes(as, config, s.ScopesForIdentity(string(as))); err != nil {
+	if err := checkShortcutScopes(f, cmd.Context(), as, config, s.ScopesForIdentity(string(as))); err != nil {
 		return err
 	}
 
@@ -584,6 +567,10 @@ func resolveShortcutIdentity(cmd *cobra.Command, f *cmdutil.Factory, s *Shortcut
 	asFlag, _ := cmd.Flags().GetString("as")
 	as := f.ResolveAs(cmd, core.Identity(asFlag))
 
+	if err := f.CheckStrictMode(as); err != nil {
+		return "", err
+	}
+
 	// Step 2: check if this shortcut supports the resolved identity.
 	if err := f.CheckIdentity(as, s.AuthTypes); err != nil {
 		return "", err
@@ -591,11 +578,11 @@ func resolveShortcutIdentity(cmd *cobra.Command, f *cmdutil.Factory, s *Shortcut
 	return as, nil
 }
 
-func checkShortcutScopes(as core.Identity, config *core.CliConfig, scopes []string) error {
-	if as != core.AsUser || len(scopes) == 0 || config.UserOpenId == "" {
+func checkShortcutScopes(f *cmdutil.Factory, ctx context.Context, as core.Identity, config *core.CliConfig, scopes []string) error {
+	if len(scopes) == 0 {
 		return nil
 	}
-	missing := checkScopePrereqs(config.AppID, config.UserOpenId, scopes)
+	missing := checkScopePrereqs(f, ctx, config.AppID, as, scopes)
 	if len(missing) == 0 {
 		return nil
 	}

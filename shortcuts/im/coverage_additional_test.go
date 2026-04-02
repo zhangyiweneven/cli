@@ -268,12 +268,6 @@ func TestResolveChatIDForMessagesList(t *testing.T) {
 	t.Run("user resolved through p2p lookup", func(t *testing.T) {
 		runtime := newBotShortcutRuntime(t, shortcutRoundTripFunc(func(req *http.Request) (*http.Response, error) {
 			switch {
-			case strings.Contains(req.URL.Path, "tenant_access_token"):
-				return shortcutJSONResponse(200, map[string]interface{}{
-					"code":                0,
-					"tenant_access_token": "tenant-token",
-					"expire":              7200,
-				}), nil
 			case strings.Contains(req.URL.Path, "/open-apis/im/v1/chat_p2p/batch_query"):
 				return shortcutJSONResponse(200, map[string]interface{}{
 					"code": 0,

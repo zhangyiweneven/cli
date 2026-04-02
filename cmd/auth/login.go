@@ -46,6 +46,10 @@ func NewCmdAuthLogin(f *cmdutil.Factory, runF func(*LoginOptions) error) *cobra.
 For AI agents: this command blocks until the user completes authorization in the
 browser. Run it in the background and retrieve the verification URL from its output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if f.IsStrictMode() {
+				return output.Errorf(output.ExitValidation, "strict_mode",
+					"strict mode is enabled, only bot identity is allowed. This setting is managed by the administrator and must not be modified by AI agents.")
+			}
 			opts.Ctx = cmd.Context()
 			if runF != nil {
 				return runF(opts)
@@ -101,8 +105,10 @@ func authLoginRun(opts *LoginOptions) error {
 
 	// Determine UI language from saved config
 	lang := "zh"
-	if multi, _ := core.LoadMultiAppConfig(); multi != nil && len(multi.Apps) > 0 {
-		lang = multi.Apps[0].Lang
+	if multi, _ := core.LoadMultiAppConfig(); multi != nil {
+		if app := multi.FindApp(config.ProfileName); app != nil {
+			lang = app.Lang
+		}
 	}
 	msg := getLoginMsg(lang)
 
@@ -305,16 +311,18 @@ func authLoginRun(opts *LoginOptions) error {
 
 	// Step 8: Update config — overwrite Users to single user, clean old tokens
 	multi, _ := core.LoadMultiAppConfig()
-	if multi != nil && len(multi.Apps) > 0 {
-		app := &multi.Apps[0]
-		for _, oldUser := range app.Users {
-			if oldUser.UserOpenId != openId {
-				larkauth.RemoveStoredToken(config.AppID, oldUser.UserOpenId)
+	if multi != nil {
+		app := multi.FindApp(config.ProfileName)
+		if app != nil {
+			for _, oldUser := range app.Users {
+				if oldUser.UserOpenId != openId {
+					larkauth.RemoveStoredToken(config.AppID, oldUser.UserOpenId)
+				}
 			}
-		}
-		app.Users = []core.AppUser{{UserOpenId: openId, UserName: userName}}
-		if err := core.SaveMultiAppConfig(multi); err != nil {
-			return output.Errorf(output.ExitInternal, "internal", "failed to save config: %v", err)
+			app.Users = []core.AppUser{{UserOpenId: openId, UserName: userName}}
+			if err := core.SaveMultiAppConfig(multi); err != nil {
+				return output.Errorf(output.ExitInternal, "internal", "failed to save config: %v", err)
+			}
 		}
 	}
 
@@ -385,16 +393,18 @@ func authLoginPollDeviceCode(opts *LoginOptions, config *core.CliConfig, msg *lo
 
 	// Update config — overwrite Users to single user, clean old tokens
 	multi, _ := core.LoadMultiAppConfig()
-	if multi != nil && len(multi.Apps) > 0 {
-		app := &multi.Apps[0]
-		for _, oldUser := range app.Users {
-			if oldUser.UserOpenId != openId {
-				larkauth.RemoveStoredToken(config.AppID, oldUser.UserOpenId)
+	if multi != nil {
+		app := multi.FindApp(config.ProfileName)
+		if app != nil {
+			for _, oldUser := range app.Users {
+				if oldUser.UserOpenId != openId {
+					larkauth.RemoveStoredToken(config.AppID, oldUser.UserOpenId)
+				}
 			}
-		}
-		app.Users = []core.AppUser{{UserOpenId: openId, UserName: userName}}
-		if err := core.SaveMultiAppConfig(multi); err != nil {
-			return output.Errorf(output.ExitInternal, "internal", "failed to save config: %v", err)
+			app.Users = []core.AppUser{{UserOpenId: openId, UserName: userName}}
+			if err := core.SaveMultiAppConfig(multi); err != nil {
+				return output.Errorf(output.ExitInternal, "internal", "failed to save config: %v", err)
+			}
 		}
 	}
 
