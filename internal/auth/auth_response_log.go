@@ -15,9 +15,11 @@ import (
 )
 
 var (
-	authResponseLogWriter io.Writer = defaultLogWriter{}
-	authResponseLogNow              = time.Now
-	authResponseLogArgs             = func() []string { return os.Args }
+	authResponseLogWriter  io.Writer = defaultLogWriter{}
+	authResponseLogNow               = time.Now
+	authResponseLogArgs              = func() []string { return os.Args }
+	authResponseLogCleanup           = cleanupOldLogs
+	authResponseLogCleaned bool
 
 	logMu sync.Mutex
 )
@@ -44,8 +46,11 @@ func (defaultLogWriter) Write(p []byte) (n int, err error) {
 	}
 	defer f.Close()
 
-	// Clean up old logs (keep 7 days)
-	go cleanupOldLogs(dir, now)
+	// Best-effort cleanup: run at most once per process.
+	if !authResponseLogCleaned {
+		authResponseLogCleaned = true
+		go authResponseLogCleanup(dir, now)
+	}
 
 	return f.Write(p)
 }
