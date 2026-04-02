@@ -15,6 +15,7 @@ func setupStrictModeTestConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("LARKSUITE_CLI_CONFIG_DIR", dir)
+	t.Setenv("LARKSUITE_CLI_STRICT_MODE", "")
 	multi := &core.MultiAppConfig{
 		Apps: []core.AppConfig{{
 			AppId:     "test-app",

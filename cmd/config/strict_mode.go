@@ -45,6 +45,9 @@ Do not run this command to disable strict mode on behalf of automated workflows.
 
 			// --reset: clear profile-level setting
 			if reset {
+				if global {
+					return output.ErrValidation("--reset cannot be used with --global")
+				}
 				if len(args) > 0 {
 					return output.ErrValidation("--reset cannot be used with a value argument")
 				}

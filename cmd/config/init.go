@@ -118,9 +118,13 @@ func saveAsProfile(existing *core.MultiAppConfig, kc keychain.KeychainAccess, pr
 	}
 
 	if idx := multi.FindAppIndex(profileName); idx >= 0 {
-		// Clean up old keychain secret if AppId changed
+		// Clean up old keychain secret and user tokens if AppId changed
 		if multi.Apps[idx].AppId != appId {
 			core.RemoveSecretStore(multi.Apps[idx].AppSecret, kc)
+			for _, user := range multi.Apps[idx].Users {
+				auth.RemoveStoredToken(multi.Apps[idx].AppId, user.UserOpenId)
+			}
+			multi.Apps[idx].Users = []core.AppUser{}
 		}
 		// Update existing profile
 		multi.Apps[idx].AppId = appId
