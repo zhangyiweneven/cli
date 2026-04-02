@@ -32,7 +32,7 @@ func (defaultLogWriter) Write(p []byte) (n int, err error) {
 	dir := filepath.Join(core.GetConfigDir(), "logs")
 	now := authResponseLogNow()
 
-	n, err = func() (int, error) {
+	n, err = func() (n int, writeErr error) {
 		logMu.Lock()
 		defer logMu.Unlock()
 
@@ -48,9 +48,14 @@ func (defaultLogWriter) Write(p []byte) (n int, err error) {
 		if err != nil {
 			return 0, err
 		}
-		defer f.Close()
+		defer func() {
+			if cerr := f.Close(); cerr != nil && writeErr == nil {
+				writeErr = cerr
+			}
+		}()
 
-		return f.Write(p)
+		n, writeErr = f.Write(p)
+		return n, writeErr
 	}()
 
 	go authResponseLogCleanup(dir, now)
