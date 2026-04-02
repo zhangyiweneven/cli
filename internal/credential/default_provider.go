@@ -30,21 +30,23 @@ func NewDefaultAccountProvider(kc keychain.KeychainAccess, profile func() string
 }
 
 func (p *DefaultAccountProvider) ResolveAccount(ctx context.Context) (*Account, error) {
-	cfg, err := core.RequireConfigForProfile(p.keychain, p.profile())
+	// Load config once — used for both credentials and strict mode.
+	multi, err := core.LoadMultiAppConfig()
+	if err != nil {
+		return nil, &core.ConfigError{Code: 2, Type: "config", Message: "not configured", Hint: "run `lark-cli config init --new` in the background. It blocks and outputs a verification URL — retrieve the URL and open it in a browser to complete setup."}
+	}
+
+	cfg, err := core.ResolveConfigFromMulti(multi, p.keychain, p.profile())
 	if err != nil {
 		return nil, err
 	}
-	cfg.SupportedIdentities = configStrictModeToIdentitySupport(p.profile())
+	cfg.SupportedIdentities = strictModeToIdentitySupport(multi, p.profile())
 	return cfg, nil
 }
 
-// configStrictModeToIdentitySupport reads strictMode from config file
-// and maps it to the SupportedIdentities bitflag.
-func configStrictModeToIdentitySupport(profileOverride string) uint8 {
-	multi, err := core.LoadMultiAppConfig()
-	if err != nil {
-		return 0
-	}
+// strictModeToIdentitySupport maps the config-level strict mode to
+// the SupportedIdentities bitflag using an already-loaded MultiAppConfig.
+func strictModeToIdentitySupport(multi *core.MultiAppConfig, profileOverride string) uint8 {
 	app := multi.CurrentAppConfig(profileOverride)
 	var mode core.StrictMode
 	if app != nil && app.StrictMode != nil {

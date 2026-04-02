@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"slices"
+
 	"github.com/larksuite/cli/internal/cmdutil"
 	"github.com/larksuite/cli/internal/core"
 	"github.com/spf13/cobra"
@@ -23,7 +25,7 @@ func pruneIncompatible(parent *cobra.Command, mode core.StrictMode) {
 	var toRemove []*cobra.Command
 	for _, child := range parent.Commands() {
 		ids := cmdutil.GetSupportedIdentities(child)
-		if ids != nil && !contains(ids, forced) {
+		if ids != nil && !slices.Contains(ids, forced) {
 			toRemove = append(toRemove, child)
 			continue
 		}
@@ -71,11 +73,3 @@ func pruneEmpty(parent *cobra.Command) {
 	}
 }
 
-func contains(ss []string, s string) bool {
-	for _, v := range ss {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}

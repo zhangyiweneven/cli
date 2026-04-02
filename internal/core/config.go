@@ -221,7 +221,12 @@ func RequireConfigForProfile(kc keychain.KeychainAccess, profileOverride string)
 	if err != nil || raw == nil || len(raw.Apps) == 0 {
 		return nil, &ConfigError{Code: 2, Type: "config", Message: "not configured", Hint: "run `lark-cli config init --new` in the background. It blocks and outputs a verification URL — retrieve the URL and open it in a browser to complete setup."}
 	}
+	return ResolveConfigFromMulti(raw, kc, profileOverride)
+}
 
+// ResolveConfigFromMulti resolves a single-app config from an already-loaded MultiAppConfig.
+// This avoids re-reading the config file when the caller has already loaded it.
+func ResolveConfigFromMulti(raw *MultiAppConfig, kc keychain.KeychainAccess, profileOverride string) (*CliConfig, error) {
 	// Apply env var fallback
 	effectiveOverride := profileOverride
 	if effectiveOverride == "" {
