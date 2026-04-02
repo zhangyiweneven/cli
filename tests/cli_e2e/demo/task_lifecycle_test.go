@@ -1,11 +1,10 @@
 // Copyright (c) 2026 Lark Technologies Pte. Ltd.
 // SPDX-License-Identifier: MIT
 
-package demo_test
+package demo
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -43,11 +42,6 @@ func TestDemo_TaskLifecycle(t *testing.T) {
 		require.NotEmpty(t, taskGUID, "stdout:\n%s", result.Stdout)
 
 		parentT.Cleanup(func() {
-			if os.Getenv("LARK_CLI_E2E_KEEP") == "1" {
-				t.Logf("keeping task %s because LARK_CLI_E2E_KEEP=1", taskGUID)
-				return
-			}
-
 			deleteResult, deleteErr := clie2e.RunCmd(context.Background(), clie2e.Request{
 				Args:   []string{"task", "tasks", "delete"},
 				Params: map[string]any{"task_guid": taskGUID},
