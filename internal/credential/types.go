@@ -49,9 +49,8 @@ func ParseTokenType(s string) (TokenType, bool) {
 
 // TokenSpec is the input to TokenProvider.ResolveToken.
 type TokenSpec struct {
-	Type     TokenType
-	Identity core.Identity
-	AppID    string // identifies which app (multi-account); not sensitive
+	Type  TokenType
+	AppID string // identifies which app (multi-account); not sensitive
 }
 
 // TokenResult is the output of TokenProvider.ResolveToken.
@@ -73,5 +72,5 @@ func NewTokenSpec(identity core.Identity, appID string) TokenSpec {
 	if identity.IsBot() {
 		t = TokenTypeTAT
 	}
-	return TokenSpec{Type: t, Identity: identity, AppID: appID}
+	return TokenSpec{Type: t, AppID: appID}
 }

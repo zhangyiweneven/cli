@@ -36,7 +36,7 @@ func TestFullChain_EnvWins(t *testing.T) {
 	}
 
 	result, err := cp.ResolveToken(context.Background(), credential.TokenSpec{
-		Type: credential.TokenTypeUAT, Identity: core.AsUser, AppID: "env_app",
+		Type: credential.TokenTypeUAT, AppID: "env_app",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestFullChain_Fallthrough(t *testing.T) {
 		nil, mock, nil,
 	)
 	result, err := cp.ResolveToken(context.Background(), credential.TokenSpec{
-		Type: credential.TokenTypeUAT, Identity: core.AsUser, AppID: "app1",
+		Type: credential.TokenTypeUAT, AppID: "app1",
 	})
 	if err != nil {
 		t.Fatal(err)

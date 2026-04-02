@@ -105,9 +105,8 @@ func (p *CredentialProvider) enrichUserInfo(ctx context.Context, acct *Account) 
 func (p *CredentialProvider) ResolveToken(ctx context.Context, req TokenSpec) (*TokenResult, error) {
 	for _, prov := range p.providers {
 		tok, err := prov.ResolveToken(ctx, extcred.TokenSpec{
-			Type:     extcred.TokenType(req.Type.String()),
-			Identity: string(req.Identity),
-			AppID:    req.AppID,
+			Type:  extcred.TokenType(req.Type.String()),
+			AppID: req.AppID,
 		})
 		if err != nil {
 			return nil, err

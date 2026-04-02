@@ -5,6 +5,19 @@ package credential
 
 import "context"
 
+// Brand constants for Account.Brand.
+const (
+	BrandLark   = "lark"
+	BrandFeishu = "feishu"
+)
+
+// Identity constants for Account.DefaultAs.
+const (
+	IdentityUser = "user"
+	IdentityBot  = "bot"
+	IdentityAuto = "auto"
+)
+
 // IdentitySupport declares which identities a credential source can provide.
 type IdentitySupport uint8
 
@@ -27,8 +40,8 @@ func (s IdentitySupport) BotOnly() bool { return s == SupportsBot }
 type Account struct {
 	AppID               string
 	AppSecret           string
-	Brand               string          // "lark" or "feishu"
-	DefaultAs           string          // "user" / "bot" / "auto"; empty = not set
+	Brand               string          // BrandLark or BrandFeishu
+	DefaultAs           string          // IdentityUser / IdentityBot / IdentityAuto; empty = not set
 	ProfileName         string
 	OpenID              string          // optional; if UAT is available, API result takes precedence
 	SupportedIdentities IdentitySupport // zero = provider did not declare; treat as no restriction
@@ -51,9 +64,8 @@ const (
 
 // TokenSpec describes what token is needed.
 type TokenSpec struct {
-	Type     TokenType
-	Identity string // "user" or "bot"
-	AppID    string
+	Type  TokenType
+	AppID string
 }
 
 // BlockError is returned by a Provider to actively reject a request

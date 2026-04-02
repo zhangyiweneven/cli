@@ -22,6 +22,7 @@ type Identity string
 const (
 	AsUser Identity = "user"
 	AsBot  Identity = "bot"
+	AsAuto Identity = "auto"
 )
 
 // IsBot returns true if the identity is bot.
