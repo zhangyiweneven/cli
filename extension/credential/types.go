@@ -5,14 +5,33 @@ package credential
 
 import "context"
 
+// IdentitySupport declares which identities a credential source can provide.
+type IdentitySupport uint8
+
+const (
+	SupportsUser IdentitySupport = 1 << iota
+	SupportsBot
+	SupportsAll = SupportsUser | SupportsBot
+)
+
+// Has reports whether s includes the given flag.
+func (s IdentitySupport) Has(flag IdentitySupport) bool { return s&flag != 0 }
+
+// UserOnly returns true if only user identity is supported.
+func (s IdentitySupport) UserOnly() bool { return s == SupportsUser }
+
+// BotOnly returns true if only bot identity is supported.
+func (s IdentitySupport) BotOnly() bool { return s == SupportsBot }
+
 // Account holds resolved app credentials and configuration.
 type Account struct {
-	AppID       string
-	AppSecret   string
-	Brand       string // "lark" or "feishu"
-	DefaultAs   string // "user" / "bot" / "auto"; empty = not set
-	ProfileName string
-	OpenID      string // optional; if UAT is available, API result takes precedence
+	AppID               string
+	AppSecret           string
+	Brand               string          // "lark" or "feishu"
+	DefaultAs           string          // "user" / "bot" / "auto"; empty = not set
+	ProfileName         string
+	OpenID              string          // optional; if UAT is available, API result takes precedence
+	SupportedIdentities IdentitySupport // zero = provider did not declare; treat as no restriction
 }
 
 // Token holds a resolved access token and optional metadata.

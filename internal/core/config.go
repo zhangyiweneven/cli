@@ -41,7 +41,7 @@ type AppConfig struct {
 	Brand      LarkBrand   `json:"brand"`
 	Lang       string      `json:"lang,omitempty"`
 	DefaultAs  string      `json:"defaultAs,omitempty"` // "user" | "bot" | "auto"
-	StrictMode *bool       `json:"strictMode,omitempty"`
+	StrictMode *StrictMode `json:"strictMode,omitempty"`
 	Users      []AppUser   `json:"users"`
 }
 
@@ -56,7 +56,7 @@ func (a *AppConfig) ProfileName() string {
 
 // MultiAppConfig is the multi-app config file format.
 type MultiAppConfig struct {
-	StrictMode  bool        `json:"strictMode,omitempty"`
+	StrictMode  StrictMode  `json:"strictMode,omitempty"`
 	CurrentApp  string      `json:"currentApp,omitempty"`
 	PreviousApp string      `json:"previousApp,omitempty"`
 	Apps        []AppConfig `json:"apps"`
@@ -149,13 +149,14 @@ func ValidateProfileName(name string) error {
 
 // CliConfig is the resolved single-app config used by downstream code.
 type CliConfig struct {
-	ProfileName string
-	AppID       string
-	AppSecret   string
-	Brand       LarkBrand
-	DefaultAs   string // "user" | "bot" | "auto" | "" (from config file)
-	UserOpenId  string
-	UserName    string
+	ProfileName         string
+	AppID               string
+	AppSecret           string
+	Brand               LarkBrand
+	DefaultAs           string // "user" | "bot" | "auto" | "" (from config file)
+	UserOpenId          string
+	UserName            string
+	SupportedIdentities uint8 `json:"-"` // bitflag: 1=user, 2=bot; set by credential provider
 }
 
 // GetConfigDir returns the config directory path.
