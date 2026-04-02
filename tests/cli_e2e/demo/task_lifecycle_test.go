@@ -47,11 +47,11 @@ func TestDemo_TaskLifecycle(t *testing.T) {
 				Params: map[string]any{"task_guid": taskGUID},
 			})
 			if deleteErr != nil {
-				t.Errorf("delete task %s: %v", taskGUID, deleteErr)
+				parentT.Errorf("delete task %s: %v", taskGUID, deleteErr)
 				return
 			}
 			if deleteResult.ExitCode != 0 {
-				t.Errorf("delete task %s failed: exit=%d stderr=%s", taskGUID, deleteResult.ExitCode, deleteResult.Stderr)
+				parentT.Errorf("delete task %s failed: exit=%d stderr=%s", taskGUID, deleteResult.ExitCode, deleteResult.Stderr)
 			}
 		})
 	})
