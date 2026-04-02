@@ -4,9 +4,12 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
@@ -34,23 +37,27 @@ func TestVerifyUserToken(t *testing.T) {
 		body      interface{}
 		wantErr   bool
 		errSubstr string
+		wantLog   bool
 	}{
 		{
 			name:    "success",
 			body:    map[string]interface{}{"code": 0, "msg": "ok"},
 			wantErr: false,
+			wantLog: true,
 		},
 		{
 			name:      "token invalid",
 			body:      map[string]interface{}{"code": 99991668, "msg": "invalid token"},
 			wantErr:   true,
 			errSubstr: "[99991668]",
+			wantLog:   true,
 		},
 		{
 			name:      "non-JSON response",
 			body:      "not json",
 			wantErr:   true,
 			errSubstr: "invalid character",
+			wantLog:   false,
 		},
 	}
 
@@ -61,14 +68,35 @@ func TestVerifyUserToken(t *testing.T) {
 
 			reg.Register(&httpmock.Stub{
 				Method: "GET",
-				URL:    "/open-apis/authen/v1/user_info",
+				URL:    PathUserInfoV1,
 				Body:   tt.body,
+				Headers: http.Header{
+					"Content-Type": []string{"application/json"},
+					"X-Tt-Logid":   []string{"verify-log-id"},
+				},
 			})
 
 			sdk := lark.NewClient("test-app", "test-secret",
 				lark.WithLogLevel(larkcore.LogLevelError),
 				lark.WithHttpClient(httpmock.NewClient(reg)),
 			)
+
+			var buf bytes.Buffer
+			prevWriter := authResponseLogWriter
+			prevNow := authResponseLogNow
+			prevArgs := authResponseLogArgs
+			authResponseLogWriter = &buf
+			authResponseLogNow = func() time.Time {
+				return time.Date(2026, 4, 2, 3, 4, 5, 0, time.UTC)
+			}
+			authResponseLogArgs = func() []string {
+				return []string{"lark-cli", "auth", "status"}
+			}
+			t.Cleanup(func() {
+				authResponseLogWriter = prevWriter
+				authResponseLogNow = prevNow
+				authResponseLogArgs = prevArgs
+			})
 
 			err := VerifyUserToken(context.Background(), sdk, "test-token")
 			if tt.wantErr {
@@ -82,6 +110,23 @@ func TestVerifyUserToken(t *testing.T) {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)
 				}
+			}
+			got := buf.String()
+			if tt.wantLog {
+				if !strings.Contains(got, "path="+PathUserInfoV1) {
+					t.Fatalf("expected path in log, got %q", got)
+				}
+				if !strings.Contains(got, "status=200") {
+					t.Fatalf("expected status=200 in log, got %q", got)
+				}
+				if !strings.Contains(got, "x-tt-logid=verify-log-id") {
+					t.Fatalf("expected x-tt-logid in log, got %q", got)
+				}
+				if !strings.Contains(got, "cmdline=lark-cli auth status") {
+					t.Fatalf("expected cmdline in log, got %q", got)
+				}
+			} else if got != "" {
+				t.Fatalf("expected no log output, got %q", got)
 			}
 		})
 	}

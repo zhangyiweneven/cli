@@ -54,8 +54,8 @@ type OAuthEndpoints struct {
 func ResolveOAuthEndpoints(brand core.LarkBrand) OAuthEndpoints {
 	ep := core.ResolveEndpoints(brand)
 	return OAuthEndpoints{
-		DeviceAuthorization: ep.Accounts + "/oauth/v1/device_authorization",
-		Token:               ep.Open + "/open-apis/authen/v2/oauth/token",
+		DeviceAuthorization: ep.Accounts + PathDeviceAuthorization,
+		Token:               ep.Open + PathOAuthTokenV2,
 	}
 }
 
@@ -93,6 +93,7 @@ func RequestDeviceAuthorization(httpClient *http.Client, appId, appSecret string
 		return nil, err
 	}
 	defer resp.Body.Close()
+	logAuthResponse(resp)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -179,6 +180,7 @@ func PollDeviceToken(ctx context.Context, httpClient *http.Client, appId, appSec
 			currentInterval = minInt(currentInterval+1, maxPollInterval)
 			continue
 		}
+		logAuthResponse(resp)
 
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
