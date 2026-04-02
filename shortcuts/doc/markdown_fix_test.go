@@ -141,10 +141,9 @@ func TestFixTopLevelSoftbreaks(t *testing.T) {
 			want:  "```\nline1\nline2\n```",
 		},
 		{
+			// Inner lines are inside an opaque block so no blank line is inserted between them.
+			// The closing </callout> tag is top-level so a blank line is inserted before it.
 			name:  "lines inside callout not modified",
-			// Inner lines (line1, line2) are inside an opaque block so no blank line is inserted
-			// between them. The closing </callout> tag is a top-level line so a blank line is
-			// inserted before it — this is acceptable and matches actual behaviour.
 			input: "<callout>\nline1\nline2\n</callout>",
 			want:  "<callout>\nline1\nline2\n\n</callout>",
 		},
