@@ -32,6 +32,7 @@ func fixExportedMarkdown(md string) string {
 	md = fixBlockquoteHardBreaks(md)
 	md = fixTopLevelSoftbreaks(md)
 	md = fixCalloutEmoji(md)
+	md = fixCodeBlockTrailingBlanks(md)
 	// Collapse runs of 3+ consecutive newlines into exactly 2 (one blank line).
 	for strings.Contains(md, "\n\n\n") {
 		md = strings.ReplaceAll(md, "\n\n\n", "\n\n")
@@ -144,6 +145,59 @@ func fixCalloutEmoji(md string) string {
 	})
 }
 
+// fixCodeBlockTrailingBlanks removes blank lines that appear immediately before
+// a closing ``` fence inside a fenced code block. fetch-doc / create-doc
+// sometimes inserts an extra blank line at the end of code block content:
+//
+//	```
+//	last line
+//	           ← spurious blank added by server
+//	```
+//
+// Removing it keeps the round-trip diff clean.
+// fixCodeBlockTrailingBlanks removes blank lines that appear immediately before
+// a closing ``` fence inside a fenced code block. fetch-doc / create-doc
+// sometimes inserts an extra blank line at the end of code block content:
+//
+//	```
+//	last line
+//	           ← spurious blank added by server
+//	```
+//
+// Removing it keeps the round-trip diff clean.
+// Nested fences (e.g. ```go inside ```markdown) are handled by tracking
+// nesting depth so only the outermost closing fence is affected.
+func fixCodeBlockTrailingBlanks(md string) string {
+	lines := strings.Split(md, "\n")
+	out := make([]string, 0, len(lines))
+	inCodeBlock := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !inCodeBlock {
+			// Any ``` line (with or without language id) opens a code block.
+			if strings.HasPrefix(trimmed, "```") {
+				inCodeBlock = true
+				out = append(out, line)
+				continue
+			}
+		} else {
+			// Only a plain ``` (no language id) closes a code block.
+			// Lines like ```go or ```plaintext inside a code block are content.
+			if trimmed == "```" {
+				// Drop trailing blank before the closing fence.
+				if len(out) > 0 && strings.TrimSpace(out[len(out)-1]) == "" {
+					out = out[:len(out)-1]
+				}
+				inCodeBlock = false
+				out = append(out, line)
+				continue
+			}
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
 // isTableStructuralTag returns true for lark-table tags that are structural
 // (table/tr/td open/close) and should not themselves trigger blank-line insertion.
 func isTableStructuralTag(s string) bool {
@@ -181,10 +235,13 @@ func fixTopLevelSoftbreaks(md string) string {
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// --- Track fenced code blocks (``` toggles) — skip all processing inside. ---
+		// --- Track fenced code blocks — skip all processing inside. ---
+		// Any ``` line opens a block; only plain ``` (no language id) closes it.
 		if strings.HasPrefix(trimmed, "```") {
 			if inCodeBlock {
-				inCodeBlock = false
+				if trimmed == "```" {
+					inCodeBlock = false
+				}
 			} else {
 				inCodeBlock = true
 			}
