@@ -4,6 +4,8 @@
 
 针对时间未确定的预约日程需求，提供多个时间推荐方案，用户可以根据需要选择方案，解决协调会议时间的难题。
 
+> **身份规则：** 默认按用户自己的日历忙闲数据做推荐。若当前无有效 user 登录态，auto 会回落到 bot，而 calendar shortcut 会直接拦截；请先运行 `lark-cli auth login --domain calendar`。若明确要使用 bot 身份，可显式添加 `--as bot`；若环境已明确配置 bot 为默认身份，也会按 bot 语义执行。
+
 **调用时机 (Agent Guidance):**
 - ✅ **当用户意图是预约日程，但时间未完全确定**（如`今天`、`近三天`、`本周`、`下午`, `无时间描述`）时，调用此工具来获取推荐时间块给用户选择。
 - ❌ **当用户已经明确了具体的时间点**（如`今天下午3点`），则**不需要**调用此工具，应直接调用 `lark-cli calendar +create` 工具创建日程。
@@ -123,4 +125,3 @@ lark-cli calendar +suggestion \
 - [lark-calendar-create](lark-calendar-create.md) — 创建日程
 - [lark-calendar-freebusy](lark-calendar-freebusy.md) — 查询忙闲时段和rsvp状态
 - [lark-calendar](../SKILL.md) — 日历完整 API
-

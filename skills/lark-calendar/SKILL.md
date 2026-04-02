@@ -12,6 +12,7 @@ metadata:
 
 **CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../lark-shared/SKILL.md`](../lark-shared/SKILL.md)，其中包含认证、权限处理**
 **CRITICAL — 所有的 Shortcuts 在执行之前，务必先使用 Read 工具读取其对应的说明文档，禁止直接盲目调用命令。**
+**CRITICAL — calendar 域默认按用户语义工作。若当前无有效 user 登录态，auto 身份会回落到 bot，calendar shortcut 会直接拦截；此时如需操作用户自己的日历，先执行 `lark-cli auth login --domain calendar`。若明确要使用 bot 身份，可显式添加 `--as bot`；若环境已明确配置 bot 为默认身份，也会按 bot 语义执行。**
 
 ## 核心场景
 

@@ -5,6 +5,8 @@
 
 查看近期日程安排。只读操作，不修改任何日程。
 
+> **身份规则：** 默认查看的是用户自己的日程。若当前无有效 user 登录态，auto 会回落到 bot，而 calendar shortcut 会直接拦截；请先运行 `lark-cli auth login --domain calendar`。若明确要查看 bot 日历，可显式添加 `--as bot`；若环境已明确配置 bot 为默认身份，也会按 bot 语义执行。
+
 需要的scopes: ["calendar:calendar.event:read"]
 
 ## 命令

@@ -4,6 +4,8 @@
 
 回复指定的日程，更新当前用户的 RSVP 状态（接受、拒绝或待定）。
 
+> **身份规则：** 默认回复的是当前登录用户的日程邀请。若当前无有效 user 登录态，auto 会回落到 bot，而 calendar shortcut 会直接拦截；请先运行 `lark-cli auth login --domain calendar`。若明确要用 bot 身份处理 bot 日历事件，可显式添加 `--as bot`；若环境已明确配置 bot 为默认身份，也会按 bot 语义执行。
+
 需要的scopes: ["calendar:calendar.event:reply"]
 
 ## 命令

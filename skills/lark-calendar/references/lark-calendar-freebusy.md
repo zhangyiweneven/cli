@@ -7,6 +7,8 @@
 
 需要的scopes: ["calendar:calendar.free_busy:read"]
 
+> **身份规则：** 默认查询当前登录用户的忙闲状态。若当前无有效 user 登录态，auto 会回落到 bot，而 calendar shortcut 会直接拦截；请先运行 `lark-cli auth login --domain calendar`。若明确要使用 bot 身份，可显式添加 `--as bot`，并继续按 bot 模式显式提供 `--user-id`；若环境已明确配置 bot 为默认身份，也会按 bot 语义执行。
+
 ## 命令
 
 ```bash
