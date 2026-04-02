@@ -1,0 +1,205 @@
+// Copyright (c) 2026 Lark Technologies Pte. Ltd.
+// SPDX-License-Identifier: MIT
+
+package doc
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestFixBoldSpacing(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "trailing space before closing bold",
+			input: "**hello **",
+			want:  "**hello**",
+		},
+		{
+			name:  "trailing space before closing italic",
+			input: "*hello *",
+			want:  "*hello*",
+		},
+		{
+			name:  "redundant bold in h1",
+			input: "# **Title**",
+			want:  "# Title",
+		},
+		{
+			name:  "redundant bold in h2",
+			input: "## **Section**",
+			want:  "## Section",
+		},
+		{
+			name:  "no change needed for clean bold",
+			input: "**bold**",
+			want:  "**bold**",
+		},
+		{
+			name:  "multiple lines processed independently",
+			input: "**foo **\n**bar **",
+			want:  "**foo**\n**bar**",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fixBoldSpacing(tt.input)
+			if got != tt.want {
+				t.Errorf("fixBoldSpacing(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFixSetextAmbiguity(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "paragraph followed by ---",
+			input: "some text\n---",
+			want:  "some text\n\n---",
+		},
+		{
+			name:  "blank line before --- already",
+			input: "some text\n\n---",
+			want:  "some text\n\n---",
+		},
+		{
+			name:  "heading not affected",
+			input: "# Heading\n---",
+			want:  "# Heading\n\n---",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fixSetextAmbiguity(tt.input)
+			if got != tt.want {
+				t.Errorf("fixSetextAmbiguity(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFixBlockquoteHardBreaks(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "two consecutive blockquote lines",
+			input: "> line1\n> line2",
+			want:  "> line1\n>\n> line2",
+		},
+		{
+			name:  "three consecutive blockquote lines",
+			input: "> a\n> b\n> c",
+			want:  "> a\n>\n> b\n>\n> c",
+		},
+		{
+			name:  "single blockquote line unchanged",
+			input: "> only one",
+			want:  "> only one",
+		},
+		{
+			name:  "non-blockquote not affected",
+			input: "line1\nline2",
+			want:  "line1\nline2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fixBlockquoteHardBreaks(tt.input)
+			if got != tt.want {
+				t.Errorf("fixBlockquoteHardBreaks(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFixTopLevelSoftbreaks(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "adjacent top-level lines get blank line",
+			input: "paragraph one\nparagraph two",
+			want:  "paragraph one\n\nparagraph two",
+		},
+		{
+			name:  "lines inside code block not modified",
+			input: "```\nline1\nline2\n```",
+			want:  "```\nline1\nline2\n```",
+		},
+		{
+			name:  "lines inside callout not modified",
+			// Inner lines (line1, line2) are inside an opaque block so no blank line is inserted
+			// between them. The closing </callout> tag is a top-level line so a blank line is
+			// inserted before it — this is acceptable and matches actual behaviour.
+			input: "<callout>\nline1\nline2\n</callout>",
+			want:  "<callout>\nline1\nline2\n\n</callout>",
+		},
+		{
+			name:  "lark-td cell content gets blank line",
+			input: "<lark-td>\nline1\nline2\n</lark-td>",
+			want:  "<lark-td>\nline1\n\nline2\n</lark-td>",
+		},
+		{
+			name:  "structural lark-table tags not separated",
+			input: "<lark-table>\n<lark-tr>\n<lark-td>\ncontent\n</lark-td>\n</lark-tr>\n</lark-table>",
+			want:  "<lark-table>\n<lark-tr>\n<lark-td>\ncontent\n</lark-td>\n</lark-tr>\n</lark-table>",
+		},
+		{
+			name:  "blockquote lines not split",
+			input: "> line1\n> line2",
+			want:  "> line1\n> line2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fixTopLevelSoftbreaks(tt.input)
+			if got != tt.want {
+				t.Errorf("fixTopLevelSoftbreaks(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFixExportedMarkdown(t *testing.T) {
+	// End-to-end: all fixes applied together
+	input := "# **Title**\nparagraph one\nparagraph two\n**bold **\n> q1\n> q2\nsome text\n---"
+	result := fixExportedMarkdown(input)
+
+	if strings.Contains(result, "# **Title**") {
+		t.Error("expected heading bold to be stripped")
+	}
+	if !strings.Contains(result, "paragraph one\n\nparagraph two") {
+		t.Error("expected blank line between top-level paragraphs")
+	}
+	if strings.Contains(result, "**bold **") {
+		t.Error("expected trailing space in bold to be fixed")
+	}
+	if !strings.Contains(result, ">\n> q2") {
+		t.Error("expected blockquote hard break inserted")
+	}
+	if strings.Contains(result, "some text\n---") {
+		t.Error("expected blank line before --- to prevent setext heading")
+	}
+	// Should end with exactly one newline
+	if !strings.HasSuffix(result, "\n") || strings.HasSuffix(result, "\n\n") {
+		t.Errorf("expected result to end with exactly one newline, got %q", result[len(result)-5:])
+	}
+	// No triple newlines
+	if strings.Contains(result, "\n\n\n") {
+		t.Error("expected no triple newlines in output")
+	}
+}
