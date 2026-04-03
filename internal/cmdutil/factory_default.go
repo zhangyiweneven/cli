@@ -31,9 +31,10 @@ import (
 //	Phase 2: Credential (sole data source for account info)
 //	Phase 3: Config derived from Credential
 //	Phase 4: LarkClient derived from Credential
-func NewDefault() *Factory {
+func NewDefault(inv InvocationContext) *Factory {
 	f := &Factory{
-		Keychain: keychain.Default(),
+		Keychain:   keychain.Default(),
+		Invocation: inv,
 	}
 	f.IOStreams = &IOStreams{
 		In:         os.Stdin,
@@ -48,7 +49,7 @@ func NewDefault() *Factory {
 	// Phase 2: Credential (sole data source)
 	f.Credential = buildCredentialProvider(credentialDeps{
 		Keychain:   f.Keychain,
-		Profile:    func() string { return f.ProfileOverride },
+		Profile:    inv.Profile,
 		HttpClient: f.HttpClient,
 		ErrOut:     f.IOStreams.ErrOut,
 	})
@@ -123,7 +124,7 @@ func cachedHttpClientFunc() func() (*http.Client, error) {
 
 type credentialDeps struct {
 	Keychain   keychain.KeychainAccess
-	Profile    func() string
+	Profile    string
 	HttpClient func() (*http.Client, error)
 	ErrOut     io.Writer
 }

@@ -25,7 +25,7 @@ func NewCmdConfigDefaultAs(f *cmdutil.Factory) *cobra.Command {
 				return output.ErrWithHint(output.ExitValidation, "config", "not configured", "run: lark-cli config init")
 			}
 
-			app := multi.CurrentAppConfig(f.ProfileOverride)
+			app := multi.CurrentAppConfig(f.Invocation.Profile)
 			if app == nil {
 				return output.ErrWithHint(output.ExitValidation, "config", "no active profile", "run: lark-cli config init")
 			}

@@ -40,7 +40,7 @@ AI agents are strictly prohibited from modifying this setting.`,
 			if err != nil {
 				return output.ErrWithHint(output.ExitValidation, "config", "not configured", "run: lark-cli config init")
 			}
-			app := multi.CurrentAppConfig(f.ProfileOverride)
+			app := multi.CurrentAppConfig(f.Invocation.Profile)
 			if app == nil {
 				return output.ErrWithHint(output.ExitValidation, "config", "no active profile", "run: lark-cli config init")
 			}

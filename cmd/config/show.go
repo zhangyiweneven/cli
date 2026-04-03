@@ -45,7 +45,7 @@ func configShowRun(opts *ConfigShowOptions) error {
 		fmt.Fprintln(f.IOStreams.ErrOut, "Run `lark-cli config init` to initialize.")
 		return nil
 	}
-	app := config.CurrentAppConfig(f.ProfileOverride)
+	app := config.CurrentAppConfig(f.Invocation.Profile)
 	if app == nil {
 		fmt.Fprintln(f.IOStreams.ErrOut, "No active profile found.")
 		return nil

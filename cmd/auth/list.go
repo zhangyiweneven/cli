@@ -46,7 +46,7 @@ func authListRun(opts *ListOptions) error {
 		return nil
 	}
 
-	app := multi.CurrentAppConfig(f.ProfileOverride)
+	app := multi.CurrentAppConfig(f.Invocation.Profile)
 	if app == nil || len(app.Users) == 0 {
 		fmt.Fprintln(f.IOStreams.ErrOut, "No logged-in users. Run `lark-cli auth login` to log in.")
 		return nil

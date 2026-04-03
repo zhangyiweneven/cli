@@ -46,7 +46,7 @@ func authLogoutRun(opts *LogoutOptions) error {
 		return nil
 	}
 
-	app := multi.CurrentAppConfig(f.ProfileOverride)
+	app := multi.CurrentAppConfig(f.Invocation.Profile)
 	if app == nil || len(app.Users) == 0 {
 		fmt.Fprintln(f.IOStreams.ErrOut, "Not logged in.")
 		return nil

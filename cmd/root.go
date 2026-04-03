@@ -86,8 +86,14 @@ More help: lark-cli <command> --help`
 
 // Execute runs the root command and returns the process exit code.
 func Execute() int {
-	f := cmdutil.NewDefault()
+	inv, err := BootstrapInvocationContext(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return 1
+	}
+	f := cmdutil.NewDefault(inv)
 
+	globals := &GlobalOptions{Profile: inv.Profile}
 	rootCmd := &cobra.Command{
 		Use:     "lark-cli",
 		Short:   "Lark/Feishu CLI — OAuth authorization, UAT management, API calls",
@@ -97,13 +103,9 @@ func Execute() int {
 	installTipsHelpFunc(rootCmd)
 	rootCmd.SilenceErrors = true
 
-	var profileFlag string
-	rootCmd.PersistentFlags().StringVar(&profileFlag, "profile", "", "use a specific profile")
+	RegisterGlobalFlags(rootCmd.PersistentFlags(), globals)
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		cmd.SilenceUsage = true
-		if profileFlag != "" {
-			f.ProfileOverride = profileFlag
-		}
 	}
 
 	rootCmd.AddCommand(cmdconfig.NewCmdConfig(f))

@@ -215,7 +215,7 @@ func RequireConfig(kc keychain.KeychainAccess) (*CliConfig, error) {
 }
 
 // RequireConfigForProfile loads the single-app config for a specific profile.
-// Resolution priority: profileOverride > LARKSUITE_CLI_PROFILE env > config.CurrentApp > Apps[0].
+// Resolution priority: profileOverride > config.CurrentApp > Apps[0].
 func RequireConfigForProfile(kc keychain.KeychainAccess, profileOverride string) (*CliConfig, error) {
 	raw, err := LoadMultiAppConfig()
 	if err != nil || raw == nil || len(raw.Apps) == 0 {
@@ -227,18 +227,12 @@ func RequireConfigForProfile(kc keychain.KeychainAccess, profileOverride string)
 // ResolveConfigFromMulti resolves a single-app config from an already-loaded MultiAppConfig.
 // This avoids re-reading the config file when the caller has already loaded it.
 func ResolveConfigFromMulti(raw *MultiAppConfig, kc keychain.KeychainAccess, profileOverride string) (*CliConfig, error) {
-	// Apply env var fallback
-	effectiveOverride := profileOverride
-	if effectiveOverride == "" {
-		effectiveOverride = os.Getenv("LARKSUITE_CLI_PROFILE")
-	}
-
-	app := raw.CurrentAppConfig(effectiveOverride)
+	app := raw.CurrentAppConfig(profileOverride)
 	if app == nil {
 		return nil, &ConfigError{
 			Code:    2,
 			Type:    "config",
-			Message: fmt.Sprintf("profile %q not found", effectiveOverride),
+			Message: fmt.Sprintf("profile %q not found", profileOverride),
 			Hint:    fmt.Sprintf("available profiles: %s", formatProfileNames(raw.ProfileNames())),
 		}
 	}

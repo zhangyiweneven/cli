@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Lark Technologies Pte. Ltd.
+// SPDX-License-Identifier: MIT
+
 package core
 
 import (
@@ -6,22 +9,22 @@ import (
 )
 
 func TestMultiAppConfig_StrictMode_JSON(t *testing.T) {
-	// StrictMode=false should be omitted (omitempty)
+	// StrictMode="" should be omitted (omitempty)
 	m := &MultiAppConfig{
 		Apps: []AppConfig{{AppId: "a", AppSecret: PlainSecret("s"), Brand: BrandFeishu, Users: []AppUser{}}},
 	}
 	data, _ := json.Marshal(m)
 	if string(data) != `{"apps":[{"appId":"a","appSecret":"s","brand":"feishu","users":[]}]}` {
-		t.Errorf("StrictMode=false should be omitted, got: %s", data)
+		t.Errorf("StrictMode empty should be omitted, got: %s", data)
 	}
 
-	// StrictMode=true should be present
-	m.StrictMode = true
+	// StrictMode="bot" should be present
+	m.StrictMode = StrictModeBot
 	data, _ = json.Marshal(m)
 	var parsed map[string]interface{}
 	json.Unmarshal(data, &parsed)
-	if parsed["strictMode"] != true {
-		t.Errorf("StrictMode=true should be present, got: %s", data)
+	if parsed["strictMode"] != "bot" {
+		t.Errorf("StrictMode=bot should be present, got: %s", data)
 	}
 }
 
@@ -35,22 +38,21 @@ func TestAppConfig_StrictMode_JSON(t *testing.T) {
 		t.Errorf("nil StrictMode should be omitted, got: %s", data)
 	}
 
-	// StrictMode = pointer to true
-	v := true
+	// StrictMode = pointer to "user"
+	v := StrictModeUser
 	app.StrictMode = &v
 	data, _ = json.Marshal(app)
 	json.Unmarshal(data, &parsed)
-	if parsed["strictMode"] != true {
-		t.Errorf("StrictMode=true should be present, got: %s", data)
+	if parsed["strictMode"] != "user" {
+		t.Errorf("StrictMode=user should be present, got: %s", data)
 	}
 
-	// StrictMode = pointer to false (should be present, not omitted)
-	vf := false
-	app.StrictMode = &vf
+	// StrictMode = pointer to "off" (explicit off — should be present, not omitted)
+	voff := StrictModeOff
+	app.StrictMode = &voff
 	data, _ = json.Marshal(app)
 	json.Unmarshal(data, &parsed)
-	// Note: omitempty with *bool omits nil but keeps false — verify
-	if val, ok := parsed["strictMode"]; !ok || val != false {
-		t.Errorf("StrictMode=false (explicit) should be present, got: %s", data)
+	if val, ok := parsed["strictMode"]; !ok || val != "off" {
+		t.Errorf("StrictMode=off (explicit) should be present, got: %s", data)
 	}
 }

@@ -95,7 +95,7 @@ func TestFullChain_ConfigStrictMode(t *testing.T) {
 	}
 
 	ep := &envprovider.Provider{}
-	defaultAcct := credential.NewDefaultAccountProvider(&noopKC{}, func() string { return "" })
+	defaultAcct := credential.NewDefaultAccountProvider(&noopKC{}, "")
 
 	cp := credential.NewCredentialProvider(
 		[]extcred.Provider{ep},

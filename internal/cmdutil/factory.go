@@ -26,13 +26,17 @@ import (
 // Factory holds shared dependencies injected into every command.
 // All function fields are lazily initialized and cached after first call.
 // In tests, replace any field to stub out external dependencies.
+type InvocationContext struct {
+	Profile string
+}
+
 type Factory struct {
 	Config     func() (*core.CliConfig, error) // lazily loads app config from Credential
 	HttpClient func() (*http.Client, error)    // HTTP client for non-Lark API calls (with retry and security headers)
 	LarkClient func() (*lark.Client, error)    // Lark SDK client for all Open API calls
 	IOStreams  *IOStreams                      // stdin/stdout/stderr streams
 
-	ProfileOverride      string                  // from --profile flag; empty means use default resolution
+	Invocation           InvocationContext       // Immutable call context; do not mutate after Factory construction.
 	Keychain             keychain.KeychainAccess // secret storage (real keychain in prod, mock in tests)
 	IdentityAutoDetected bool                    // set by ResolveAs when identity was auto-detected
 	ResolvedIdentity     core.Identity           // identity resolved by the last ResolveAs call
